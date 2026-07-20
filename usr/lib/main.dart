@@ -87,6 +87,9 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _signIn() async {
     setState(() => _isLoading = true);
     try {
+      if (_emailController.text.trim().isEmpty || _passwordController.text.trim().isEmpty) {
+        throw Exception('Please enter an email and password.');
+      }
       await SupabaseConfig.client.auth.signInWithPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
@@ -103,6 +106,9 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _signUp() async {
     setState(() => _isLoading = true);
     try {
+      if (_emailController.text.trim().isEmpty || _passwordController.text.trim().isEmpty) {
+        throw Exception('Please enter an email and password.');
+      }
       await SupabaseConfig.client.auth.signUp(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
