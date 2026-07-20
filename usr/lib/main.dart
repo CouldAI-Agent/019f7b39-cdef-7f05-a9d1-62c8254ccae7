@@ -196,7 +196,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic>? _generatedContent;
 
   Future<void> _generateScript() async {
-    if (_topicController.text.trim().isEmpty) return;
+    if (_topicController.text.trim().isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a topic.')));
+      }
+      return;
+    }
+    
+    if (_selectedNiche.isEmpty || _selectedTone.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a niche and tone.')));
+      }
+      return;
+    }
+    
+    // _selectedLength is already an integer and cannot be null, but we verify it's valid
+    if (_selectedLength <= 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a valid video length.')));
+      }
+      return;
+    }
     
     final prefs = await SharedPreferences.getInstance();
     final apiKey = prefs.getString('openai_api_key');
@@ -264,7 +284,7 @@ The output must be strictly valid JSON without any markdown formatting or extra 
           'user_id': user.id,
           'topic': result['topic'],
           'niche': _selectedNiche,
-          'length_minutes': _selectedLength,
+          'length_mins': _selectedLength,
           'tone': _selectedTone,
           'content': result,
           'created_at': DateTime.now().toIso8601String(),
