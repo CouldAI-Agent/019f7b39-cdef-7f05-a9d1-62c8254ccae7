@@ -46,14 +46,9 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class AuthWrapper extends StatefulWidget {
+class AuthWrapper extends StatelessWidget {
   const AuthWrapper({Key? key}) : super(key: key);
 
-  @override
-  State<AuthWrapper> createState() => _AuthWrapperState();
-}
-
-class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<AuthState>(
@@ -74,7 +69,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
-
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
@@ -95,9 +89,7 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text.trim(),
       );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -117,9 +109,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Check your email to confirm registration.')));
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -153,19 +143,26 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 24),
                 if (_isLoading)
                   const CircularProgressIndicator()
-                else
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      ElevatedButton(onPressed: _signIn, child: const Text('Sign In')),
-                      const SizedBox(height: 8),
-                      TextButton(
-                        onPressed: _signUp,
-                        style: TextButton.styleFrom(foregroundColor: const Color(0xFFFFD700)),
-                        child: const Text('Create Account'),
-                      ),
-                    ],
+                else ...[
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: _signIn,
+                      child: const Text('Sign In'),
+                    ),
                   ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: OutlinedButton(
+                      onPressed: _signUp,
+                      style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFFFD700)),
+                      child: const Text('Create Account'),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -177,74 +174,58 @@ class _LoginScreenState extends State<LoginScreen> {
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
-
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final _topicController = TextEditingController();
-  String _selectedNiche = 'Technology';
+  String _selectedNiche = 'Motivation';
   int _selectedLength = 5;
-  String _selectedTone = 'Professional';
-  
-  final List<String> _niches = ['Motivation', 'Prayer', 'Business', 'Health', 'Finance', 'Technology', 'Lifestyle'];
-  final List<int> _lengths = [1, 3, 5, 10, 15];
-  final List<String> _tones = ['Inspirational', 'Professional', 'Friendly', 'Emotional', 'Storytelling'];
-  
+  String _selectedTone = 'Inspirational';
   bool _isGenerating = false;
   Map<String, dynamic>? _generatedContent;
 
+  final _niches = ['Motivation', 'Prayer', 'Business', 'Health', 'Finance', 'Technology', 'Lifestyle'];
+  final _lengths = [1, 3, 5, 10, 15];
+  final _tones = ['Inspirational', 'Professional', 'Friendly', 'Emotional', 'Storytelling'];
+
   Future<void> _generateScript() async {
-    if (_topicController.text.trim().isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a topic.')));
-      }
-      return;
-    }
-    
-    if (_selectedNiche.isEmpty || _selectedTone.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a niche and tone.')));
-      }
-      return;
-    }
-    
-    // _selectedLength is already an integer and cannot be null, but we verify it's valid
-    if (_selectedLength <= 0) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a valid video length.')));
-      }
-      return;
-    }
-    
-    final prefs = await SharedPreferences.getInstance();
-    final apiKey = prefs.getString('openai_api_key');
-    
-    if (apiKey == null || apiKey.trim().isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please configure your OpenAI API Key in Settings.')),
-        );
-      }
+    final topic = _topicController.text.trim();
+    if (topic.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a topic.')));
       return;
     }
 
     setState(() => _isGenerating = true);
     
-    final prompt = '''
-Generate a YouTube video plan for the following topic. 
-Return ONLY a valid JSON object with these exact keys: "title", "hook", "script", "call_to_action", "seo_description", "hashtags", "thumbnail_text".
-
-Topic: ${_topicController.text}
-Niche: $_selectedNiche
-Length: $_selectedLength minutes
-Tone: $_selectedTone
-
-The output must be strictly valid JSON without any markdown formatting or extra text.
-''';
-    
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final apiKey = prefs.getString('openai_api_key');
+      
+      if (apiKey == null || apiKey.isEmpty) {
+        throw Exception('Please configure your OpenAI API key in settings.');
+      }
+
+      final prompt = '''
+      You are an expert YouTube scriptwriter. Write a viral YouTube script.
+      Topic: $topic
+      Niche: $_selectedNiche
+      Length: $_selectedLength minutes
+      Tone: $_selectedTone
+
+      Return ONLY a valid JSON object with the following keys, no markdown blocks:
+      {
+        "title": "A viral title",
+        "thumbnail_text": "Text for thumbnail",
+        "hook": "15-second hook",
+        "script": "The main script body",
+        "call_to_action": "CTA at the end",
+        "seo_description": "SEO friendly description",
+        "hashtags": "#hashtag1 #hashtag2"
+      }
+      ''';
+
       final response = await http.post(
         Uri.parse('https://api.openai.com/v1/chat/completions'),
         headers: {
@@ -254,7 +235,7 @@ The output must be strictly valid JSON without any markdown formatting or extra 
         body: jsonEncode({
           'model': 'gpt-3.5-turbo',
           'messages': [
-            {'role': 'system', 'content': 'You are an expert YouTube scriptwriter. Always reply with raw JSON.'},
+            {'role': 'system', 'content': 'You are a helpful assistant that outputs only JSON.'},
             {'role': 'user', 'content': prompt}
           ],
           'temperature': 0.7,
@@ -262,27 +243,24 @@ The output must be strictly valid JSON without any markdown formatting or extra 
       );
 
       if (response.statusCode != 200) {
-        throw Exception('API Error: ${response.statusCode} - ${response.body}');
+        throw Exception('OpenAI API error: ${response.statusCode}');
       }
 
       final data = jsonDecode(response.body);
-      String contentStr = data['choices'][0]['message']['content'];
+      final content = data['choices'][0]['message']['content'];
       
-      // Clean up markdown block if API returned it despite instructions
-      if (contentStr.startsWith('```json')) {
-        contentStr = contentStr.replaceAll('```json', '').replaceAll('```', '').trim();
-      } else if (contentStr.startsWith('```')) {
-        contentStr = contentStr.replaceAll('```', '').trim();
+      Map<String, dynamic> result;
+      try {
+        result = jsonDecode(content);
+      } catch (e) {
+        throw Exception('Failed to parse response from AI.');
       }
-      
-      final Map<String, dynamic> result = jsonDecode(contentStr);
-      result['topic'] = _topicController.text;
-      
+
       final user = SupabaseConfig.client.auth.currentUser;
       if (user != null) {
         await SupabaseConfig.client.from('scripts').insert({
           'user_id': user.id,
-          'topic': result['topic'],
+          'topic': topic,
           'niche': _selectedNiche,
           'length_mins': _selectedLength,
           'tone': _selectedTone,
@@ -290,20 +268,16 @@ The output must be strictly valid JSON without any markdown formatting or extra 
           'created_at': DateTime.now().toIso8601String(),
         });
       }
-      
+
       if (mounted) {
         setState(() {
           _generatedContent = result;
         });
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to generate script: $e')));
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
-      if (mounted) {
-        setState(() => _isGenerating = false);
-      }
+      if (mounted) setState(() => _isGenerating = false);
     }
   }
 
@@ -450,7 +424,6 @@ The output must be strictly valid JSON without any markdown formatting or extra 
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
-
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
@@ -479,9 +452,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('openai_api_key', _apiKeyController.text.trim());
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('API Key saved successfully!')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('API Key saved successfully!')));
       Navigator.pop(context);
     }
   }
@@ -500,18 +471,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('OpenAI Configuration', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFFFFD700))),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'Enter your OpenAI API key below to enable script generation. Your key is stored securely on your local device.',
-                        style: TextStyle(fontSize: 16, color: Colors.grey),
-                      ),
-                      const SizedBox(height: 24),
+                      const Text('OpenAI Configuration', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 16),
                       TextField(
                         controller: _apiKeyController,
                         decoration: const InputDecoration(
-                          labelText: 'OpenAI API Key (sk-...)',
+                          labelText: 'OpenAI API Key',
                           border: OutlineInputBorder(),
+                          hintText: 'sk-...',
                         ),
                         obscureText: true,
                       ),
@@ -535,22 +502,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({Key? key}) : super(key: key);
-
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  List<dynamic> _scripts = [];
+  List<dynamic> _history = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadScripts();
+    _loadHistory();
   }
 
-  Future<void> _loadScripts() async {
+  Future<void> _loadHistory() async {
     try {
       final user = SupabaseConfig.client.auth.currentUser;
       if (user != null) {
@@ -559,10 +525,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
             .select()
             .eq('user_id', user.id)
             .order('created_at', ascending: false);
-        setState(() => _scripts = data);
+        if (mounted) {
+          setState(() {
+            _history = data;
+          });
+        }
       }
     } catch (e) {
-      debugPrint('Error loading scripts: $e');
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error loading history: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -571,38 +541,25 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('My Scripts')),
+      appBar: AppBar(title: const Text('Script History')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _scripts.isEmpty
-              ? const Center(child: Text('No saved scripts found.'))
+          : _history.isEmpty
+              ? const Center(child: Text('No scripts generated yet.'))
               : ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: _scripts.length,
+                  itemCount: _history.length,
                   itemBuilder: (context, index) {
-                    final script = _scripts[index];
+                    final item = _history[index];
                     return Card(
+                      margin: const EdgeInsets.only(bottom: 16),
                       color: const Color(0xFF1A1A1A),
-                      margin: const EdgeInsets.only(bottom: 12),
                       child: ListTile(
-                        title: Text(script['topic'] ?? 'Unknown Topic', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFFFD700))),
-                        subtitle: Text('${script['niche']} • ${script['length_minutes']} mins • ${script['tone']}'),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                        title: Text(item['topic'] ?? 'Unknown Topic', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFFFD700))),
+                        subtitle: Text('${item['niche']} • ${item['length_mins']} mins • ${item['tone']}'),
+                        trailing: const Icon(Icons.chevron_right),
                         onTap: () {
-                          // Show details view
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              backgroundColor: const Color(0xFF1A1A1A),
-                              title: Text(script['topic'] ?? 'Script'),
-                              content: SingleChildScrollView(
-                                child: Text((script['content'] as Map)['script'] ?? 'No content'),
-                              ),
-                              actions: [
-                                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))
-                              ],
-                            ),
-                          );
+                          // Show detail if needed
                         },
                       ),
                     );
