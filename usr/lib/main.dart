@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'integrations/supabase.dart';
 
 void main() async {
@@ -189,23 +192,66 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _generateScript() async {
     if (_topicController.text.trim().isEmpty) return;
     
+    final prefs = await SharedPreferences.getInstance();
+    final apiKey = prefs.getString('openai_api_key');
+    
+    if (apiKey == null || apiKey.trim().isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please configure your OpenAI API Key in Settings.')),
+        );
+      }
+      return;
+    }
+
     setState(() => _isGenerating = true);
     
-    // Simulate API delay for AI generation
-    await Future.delayed(const Duration(seconds: 2));
-    
-    final result = {
-      'topic': _topicController.text,
-      'title': 'The Ultimate Guide to ${_topicController.text} in ${DateTime.now().year}',
-      'hook': 'Are you tired of struggling with ${_topicController.text}? Watch this to the end to find out the secret.',
-      'script': 'Welcome back to the channel! Today we are discussing ${_topicController.text}. \\n\\nFirst, let us explore why this is important for your $_selectedNiche journey... [Full generated script content would appear here]',
-      'call_to_action': 'If you found this helpful, hit that like button and subscribe for more $_selectedNiche content!',
-      'seo_description': 'In this video, we break down ${_topicController.text}. Perfect for $_selectedTone viewers looking for $_selectedNiche advice.',
-      'hashtags': '#${_topicController.text.replaceAll(' ', '')} #$_selectedNiche #$_selectedTone #YouTubeTips #Success #Growth',
-      'thumbnail_text': 'Stop doing THIS with ${_topicController.text}!'
-    };
+    final prompt = '''
+Generate a YouTube video plan for the following topic. 
+Return ONLY a valid JSON object with these exact keys: "title", "hook", "script", "call_to_action", "seo_description", "hashtags", "thumbnail_text".
+
+Topic: ${_topicController.text}
+Niche: $_selectedNiche
+Length: $_selectedLength minutes
+Tone: $_selectedTone
+
+The output must be strictly valid JSON without any markdown formatting or extra text.
+''';
     
     try {
+      final response = await http.post(
+        Uri.parse('https://api.openai.com/v1/chat/completions'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $apiKey',
+        },
+        body: jsonEncode({
+          'model': 'gpt-3.5-turbo',
+          'messages': [
+            {'role': 'system', 'content': 'You are an expert YouTube scriptwriter. Always reply with raw JSON.'},
+            {'role': 'user', 'content': prompt}
+          ],
+          'temperature': 0.7,
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('API Error: ${response.statusCode} - ${response.body}');
+      }
+
+      final data = jsonDecode(response.body);
+      String contentStr = data['choices'][0]['message']['content'];
+      
+      // Clean up markdown block if API returned it despite instructions
+      if (contentStr.startsWith('```json')) {
+        contentStr = contentStr.replaceAll('```json', '').replaceAll('```', '').trim();
+      } else if (contentStr.startsWith('```')) {
+        contentStr = contentStr.replaceAll('```', '').trim();
+      }
+      
+      final Map<String, dynamic> result = jsonDecode(contentStr);
+      result['topic'] = _topicController.text;
+      
       final user = SupabaseConfig.client.auth.currentUser;
       if (user != null) {
         await SupabaseConfig.client.from('scripts').insert({
@@ -218,14 +264,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
           'created_at': DateTime.now().toIso8601String(),
         });
       }
+      
+      if (mounted) {
+        setState(() {
+          _generatedContent = result;
+        });
+      }
     } catch (e) {
-      debugPrint('Failed to save script: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to generate script: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isGenerating = false);
+      }
     }
-    
-    setState(() {
-      _generatedContent = result;
-      _isGenerating = false;
-    });
   }
 
   @override
@@ -234,6 +287,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       appBar: AppBar(
         title: const Text('Dashboard'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
+          ),
           IconButton(
             icon: const Icon(Icons.history),
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryScreen())),
@@ -244,88 +301,99 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Sidebar / Input area
-          Expanded(
-            flex: 1,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Create New Script', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFFFFD700))),
-                  const SizedBox(height: 24),
-                  TextField(
-                    controller: _topicController,
-                    decoration: const InputDecoration(
-                      labelText: 'Video Topic',
-                      border: OutlineInputBorder(),
-                      hintText: 'e.g., How to start an online business',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: _selectedNiche,
-                    decoration: const InputDecoration(labelText: 'Niche', border: OutlineInputBorder()),
-                    items: _niches.map((n) => DropdownMenuItem(value: n, child: Text(n))).toList(),
-                    onChanged: (v) => setState(() => _selectedNiche = v!),
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<int>(
-                    value: _selectedLength,
-                    decoration: const InputDecoration(labelText: 'Length (Minutes)', border: OutlineInputBorder()),
-                    items: _lengths.map((l) => DropdownMenuItem(value: l, child: Text('$l mins'))).toList(),
-                    onChanged: (v) => setState(() => _selectedLength = v!),
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: _selectedTone,
-                    decoration: const InputDecoration(labelText: 'Tone', border: OutlineInputBorder()),
-                    items: _tones.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                    onChanged: (v) => setState(() => _selectedTone = v!),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton.icon(
-                      onPressed: _isGenerating ? null : _generateScript,
-                      icon: _isGenerating ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black)) : const Icon(Icons.auto_awesome),
-                      label: Text(_isGenerating ? 'Generating...' : 'Generate Script'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 800;
           
-          // Results area
-          Expanded(
-            flex: 2,
-            child: Container(
-              color: const Color(0xFF151515),
-              child: _generatedContent == null
-                  ? const Center(child: Text('Enter a topic and click Generate to see your script.', style: TextStyle(color: Colors.grey)))
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(32),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildResultSection('Viral Title', _generatedContent!['title']),
-                          _buildResultSection('Thumbnail Text Idea', _generatedContent!['thumbnail_text']),
-                          _buildResultSection('15-Second Hook', _generatedContent!['hook']),
-                          _buildResultSection('Main Script', _generatedContent!['script']),
-                          _buildResultSection('Call to Action', _generatedContent!['call_to_action']),
-                          _buildResultSection('SEO Description', _generatedContent!['seo_description']),
-                          _buildResultSection('Hashtags', _generatedContent!['hashtags']),
-                        ],
-                      ),
-                    ),
+          final inputArea = SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Create New Script', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFFFFD700))),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: _topicController,
+                  decoration: const InputDecoration(
+                    labelText: 'Video Topic',
+                    border: OutlineInputBorder(),
+                    hintText: 'e.g., How to start an online business',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: _selectedNiche,
+                  decoration: const InputDecoration(labelText: 'Niche', border: OutlineInputBorder()),
+                  items: _niches.map((n) => DropdownMenuItem(value: n, child: Text(n))).toList(),
+                  onChanged: (v) => setState(() => _selectedNiche = v!),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<int>(
+                  value: _selectedLength,
+                  decoration: const InputDecoration(labelText: 'Length (Minutes)', border: OutlineInputBorder()),
+                  items: _lengths.map((l) => DropdownMenuItem(value: l, child: Text('$l mins'))).toList(),
+                  onChanged: (v) => setState(() => _selectedLength = v!),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: _selectedTone,
+                  decoration: const InputDecoration(labelText: 'Tone', border: OutlineInputBorder()),
+                  items: _tones.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                  onChanged: (v) => setState(() => _selectedTone = v!),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: _isGenerating ? null : _generateScript,
+                    icon: _isGenerating ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black)) : const Icon(Icons.auto_awesome),
+                    label: Text(_isGenerating ? 'Generating...' : 'Generate Script'),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
+          );
+
+          final resultsArea = Container(
+            color: const Color(0xFF151515),
+            child: _generatedContent == null
+                ? const Center(child: Text('Enter a topic and click Generate to see your script.', style: TextStyle(color: Colors.grey)))
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildResultSection('Viral Title', _generatedContent!['title'] ?? ''),
+                        _buildResultSection('Thumbnail Text Idea', _generatedContent!['thumbnail_text'] ?? ''),
+                        _buildResultSection('15-Second Hook', _generatedContent!['hook'] ?? ''),
+                        _buildResultSection('Main Script', _generatedContent!['script'] ?? ''),
+                        _buildResultSection('Call to Action', _generatedContent!['call_to_action'] ?? ''),
+                        _buildResultSection('SEO Description', _generatedContent!['seo_description'] ?? ''),
+                        _buildResultSection('Hashtags', _generatedContent!['hashtags'] ?? ''),
+                      ],
+                    ),
+                  ),
+          );
+
+          if (isMobile) {
+            return Column(
+              children: [
+                Expanded(flex: 1, child: inputArea),
+                const Divider(height: 1, color: Color(0xFF333333)),
+                Expanded(flex: 1, child: resultsArea),
+              ],
+            );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(flex: 1, child: inputArea),
+              Expanded(flex: 2, child: resultsArea),
+            ],
+          );
+        },
       ),
     );
   }
@@ -350,6 +418,91 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({Key? key}) : super(key: key);
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  final _apiKeyController = TextEditingController();
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _apiKeyController.text = prefs.getString('openai_api_key') ?? '';
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _saveSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('openai_api_key', _apiKeyController.text.trim());
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('API Key saved successfully!')),
+      );
+      Navigator.pop(context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('AI Settings')),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('OpenAI Configuration', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFFFFD700))),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Enter your OpenAI API key below to enable script generation. Your key is stored securely on your local device.',
+                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 24),
+                      TextField(
+                        controller: _apiKeyController,
+                        decoration: const InputDecoration(
+                          labelText: 'OpenAI API Key (sk-...)',
+                          border: OutlineInputBorder(),
+                        ),
+                        obscureText: true,
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: _saveSettings,
+                          child: const Text('Save Settings'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
     );
   }
 }
@@ -385,7 +538,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     } catch (e) {
       debugPrint('Error loading scripts: $e');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
