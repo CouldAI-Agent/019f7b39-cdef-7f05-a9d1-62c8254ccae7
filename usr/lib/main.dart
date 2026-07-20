@@ -1,366 +1,179 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
 
 void main() {
-  runApp(const InvestmentTrackerApp());
+  runApp(const YouTubeScriptApp());
 }
 
-class InvestmentTrackerApp extends StatelessWidget {
-  const InvestmentTrackerApp({super.key});
+class YouTubeScriptApp extends StatelessWidget {
+  const YouTubeScriptApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Investment Tracker',
-      debugShowCheckedModeBanner: false,
+      title: 'AI YouTube Script Generator',
       theme: ThemeData(
-        useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1B3B6F), // Navy
-          primary: const Color(0xFF1B3B6F), // Navy
-          secondary: const Color(0xFF28A745), // Green
-          surface: Colors.white,
-          onSurface: Colors.black87,
-          background: const Color(0xFFF8F9FA),
+          seedColor: Colors.red,
+          brightness: Brightness.light,
         ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF1B3B6F),
-          foregroundColor: Colors.white,
-          elevation: 0,
-        ),
-        cardTheme: CardTheme(
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          color: Colors.white,
-        ),
+        useMaterial3: true,
       ),
       initialRoute: '/',
       routes: {
-        '/': (context) => const DashboardScreen(),
+        '/': (context) => const ScriptGeneratorScreen(),
       },
     );
   }
 }
 
-class DashboardScreen extends StatelessWidget {
-  const DashboardScreen({super.key});
+class ScriptGeneratorScreen extends StatefulWidget {
+  const ScriptGeneratorScreen({super.key});
+
+  @override
+  State<ScriptGeneratorScreen> createState() => _ScriptGeneratorScreenState();
+}
+
+class _ScriptGeneratorScreenState extends State<ScriptGeneratorScreen> {
+  final _topicController = TextEditingController();
+  final _toneController = TextEditingController();
+  bool _isGenerating = false;
+  String? _generatedScript;
+
+  @override
+  void dispose() {
+    _topicController.dispose();
+    _toneController.dispose();
+    super.dispose();
+  }
+
+  void _generateScript() async {
+    final topic = _topicController.text;
+    if (topic.isEmpty) return;
+
+    setState(() {
+      _isGenerating = true;
+      _generatedScript = null;
+    });
+
+    // Simulate API call to AI service
+    await Future.delayed(const Duration(seconds: 2));
+
+    setState(() {
+      _isGenerating = false;
+      _generatedScript = """
+[INTRO]
+Hey everyone, welcome back to the channel! Today we're diving deep into $topic. 
+If you've ever wondered how to master this, you're in the right place.
+
+[HOOK]
+Did you know that most people completely misunderstand $topic? It's true!
+
+[BODY]
+Let's break down the three main things you need to know:
+1. The Basics
+2. Common Mistakes
+3. Pro Tips
+
+[OUTRO]
+Thanks for watching! Don't forget to like, subscribe, and hit that notification bell. See you in the next one!
+""";
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Investment Tracker'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Add transaction feature coming soon')),
-              );
-            },
-          ),
-        ],
+        title: const Text('AI YouTube Script Generator'),
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final isWide = constraints.maxWidth > 800;
-          return SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: isWide ? _buildDesktopLayout() : _buildMobileLayout(),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildMobileLayout() {
-    return const Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        PortfolioSummaryCard(),
-        SizedBox(height: 16),
-        AssetAllocationCard(),
-        SizedBox(height: 16),
-        HoldingsListCard(),
-      ],
-    );
-  }
-
-  Widget _buildDesktopLayout() {
-    return const Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 2,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              PortfolioSummaryCard(),
-              SizedBox(height: 16),
-              HoldingsListCard(),
-            ],
-          ),
-        ),
-        SizedBox(width: 16),
-        Expanded(
-          flex: 1,
-          child: AssetAllocationCard(),
-        ),
-      ],
-    );
-  }
-}
-
-class PortfolioSummaryCard extends StatelessWidget {
-  const PortfolioSummaryCard({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Total Portfolio Value',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.grey[600],
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '\$124,500.00',
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(
-                  Icons.arrow_upward,
-                  color: Color(0xFF28A745),
-                  size: 20,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '\$4,500.00 (3.75%) All Time',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: const Color(0xFF28A745),
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class AssetAllocationCard extends StatelessWidget {
-  const AssetAllocationCard({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Asset Allocation',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              height: 200,
-              child: PieChart(
-                PieChartData(
-                  sectionsSpace: 2,
-                  centerSpaceRadius: 50,
-                  sections: [
-                    PieChartSectionData(
-                      color: const Color(0xFF1B3B6F), // Navy
-                      value: 60,
-                      title: '60%',
-                      radius: 40,
-                      titleStyle: const TextStyle(
-                        fontSize: 14,
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Create Your Next Viral Video',
+                      style: TextStyle(
+                        fontSize: 28,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 32),
+                    TextField(
+                      controller: _topicController,
+                      decoration: const InputDecoration(
+                        labelText: 'Video Topic',
+                        hintText: 'e.g., How to learn Flutter in 2026',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.video_library),
                       ),
                     ),
-                    PieChartSectionData(
-                      color: const Color(0xFF28A745), // Green
-                      value: 25,
-                      title: '25%',
-                      radius: 40,
-                      titleStyle: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _toneController,
+                      decoration: const InputDecoration(
+                        labelText: 'Tone (Optional)',
+                        hintText: 'e.g., Funny, Professional, Educational',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.mood),
                       ),
                     ),
-                    PieChartSectionData(
-                      color: Colors.black87,
-                      value: 15,
-                      title: '15%',
-                      radius: 40,
-                      titleStyle: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                    const SizedBox(height: 24),
+                    FilledButton.icon(
+                      onPressed: _isGenerating ? null : _generateScript,
+                      icon: _isGenerating
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.auto_awesome),
+                      label: Text(_isGenerating ? 'Generating...' : 'Generate Script'),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.all(16),
                       ),
                     ),
+                    if (_generatedScript != null) ...[
+                      const SizedBox(height: 32),
+                      const Text(
+                        'Generated Script',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.outlineVariant,
+                          ),
+                        ),
+                        child: SelectableText(
+                          _generatedScript!,
+                          style: const TextStyle(
+                            height: 1.5,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 24),
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _LegendItem(color: Color(0xFF1B3B6F), label: 'Stocks'),
-                SizedBox(width: 16),
-                _LegendItem(color: Color(0xFF28A745), label: 'Bonds'),
-                SizedBox(width: 16),
-                _LegendItem(color: Colors.black87, label: 'Cash'),
-              ],
-            )
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LegendItem extends StatelessWidget {
-  final Color color;
-  final String label;
-
-  const _LegendItem({required this.color, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: color,
-          ),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-      ],
-    );
-  }
-}
-
-class HoldingsListCard extends StatelessWidget {
-  const HoldingsListCard({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> holdings = [
-      {'symbol': 'AAPL', 'name': 'Apple Inc.', 'shares': 50, 'price': 150.0, 'value': 7500.0, 'change': 1.2},
-      {'symbol': 'MSFT', 'name': 'Microsoft Corp.', 'shares': 30, 'price': 280.0, 'value': 8400.0, 'change': 0.8},
-      {'symbol': 'GOOGL', 'name': 'Alphabet Inc.', 'shares': 10, 'price': 2700.0, 'value': 27000.0, 'change': -0.5},
-      {'symbol': 'AMZN', 'name': 'Amazon.com', 'shares': 20, 'price': 3300.0, 'value': 66000.0, 'change': 2.1},
-      {'symbol': 'VTI', 'name': 'Vanguard Total Stock', 'shares': 70, 'price': 220.0, 'value': 15400.0, 'change': 0.3},
-    ];
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Current Holdings',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: holdings.length,
-              separatorBuilder: (context, index) => const Divider(),
-              itemBuilder: (context, index) {
-                final holding = holdings[index];
-                final change = holding['change'] as double;
-                final isPositive = change >= 0;
-                
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: CircleAvatar(
-                    backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                    child: Text(
-                      holding['symbol'][0],
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  title: Text(
-                    holding['symbol'],
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(holding['name']),
-                  trailing: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '\$${holding['value'].toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            isPositive ? Icons.arrow_upward : Icons.arrow_downward,
-                            size: 14,
-                            color: isPositive ? const Color(0xFF28A745) : Colors.red,
-                          ),
-                          Text(
-                            '${change.abs()}%',
-                            style: TextStyle(
-                              color: isPositive ? const Color(0xFF28A745) : Colors.red,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
