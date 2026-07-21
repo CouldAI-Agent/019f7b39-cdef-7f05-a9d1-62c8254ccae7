@@ -39,7 +39,6 @@ class MyApp extends StatelessWidget {
           surface: Color(0xFF1A1A1A),
         ),
       ),
-      debugShowCheckedModeBanner: false,
       initialRoute: '/',
       routes: {
         '/': (context) => const AuthWrapper(),
