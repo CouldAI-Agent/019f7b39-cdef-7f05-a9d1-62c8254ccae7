@@ -104,6 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
       await SupabaseConfig.client.auth.signUp(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
+        emailRedirectTo: 'https://motiscript.couldai.app',
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Check your email to confirm registration.')));

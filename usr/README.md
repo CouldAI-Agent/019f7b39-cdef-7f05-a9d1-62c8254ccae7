@@ -4,7 +4,7 @@ A modern, mobile-friendly Flutter web application designed to help creators gene
 
 ## Features
 
-- **User Authentication:** Sign up and log in using Supabase Auth.
+- **User Authentication:** Sign up and log in using Supabase Auth (with configurable email redirect URLs).
 - **Custom Script Generation:** Enter a topic and customize the output:
   - **Niches:** Motivation, Prayer, Business, Health, Finance, Technology, Lifestyle.
   - **Video Length:** 1, 3, 5, 10, or 15 minutes.
