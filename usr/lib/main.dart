@@ -201,60 +201,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() => _isGenerating = true);
     
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final apiKey = prefs.getString('openai_api_key');
-      
-      if (apiKey == null || apiKey.isEmpty) {
-        throw Exception('Please configure your OpenAI API key in settings.');
-      }
-
-      final prompt = '''
-      You are an expert YouTube scriptwriter. Write a viral YouTube script.
-      Topic: $topic
-      Niche: $_selectedNiche
-      Length: $_selectedLength minutes
-      Tone: $_selectedTone
-
-      Return ONLY a valid JSON object with the following keys, no markdown blocks:
-      {
-        "title": "A viral title",
-        "thumbnail_text": "Text for thumbnail",
-        "hook": "15-second hook",
-        "script": "The main script body",
-        "call_to_action": "CTA at the end",
-        "seo_description": "SEO friendly description",
-        "hashtags": "#hashtag1 #hashtag2"
-      }
-      ''';
-
-      final response = await http.post(
-        Uri.parse('https://api.openai.com/v1/chat/completions'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $apiKey',
+      final response = await SupabaseConfig.client.functions.invoke(
+        'generate_script',
+        body: {
+          'topic': topic,
+          'niche': _selectedNiche,
+          'length_mins': _selectedLength,
+          'tone': _selectedTone,
         },
-        body: jsonEncode({
-          'model': 'gpt-3.5-turbo',
-          'messages': [
-            {'role': 'system', 'content': 'You are a helpful assistant that outputs only JSON.'},
-            {'role': 'user', 'content': prompt}
-          ],
-          'temperature': 0.7,
-        }),
       );
 
-      if (response.statusCode != 200) {
-        throw Exception('OpenAI API error: ${response.statusCode}');
+      if (response.status != 200) {
+        final errorMsg = response.data != null && response.data is Map && response.data['error'] != null 
+          ? response.data['error'] 
+          : 'Failed to generate script (Status: ${response.status})';
+        throw Exception(errorMsg);
       }
 
-      final data = jsonDecode(response.body);
-      final content = data['choices'][0]['message']['content'];
-      
       Map<String, dynamic> result;
-      try {
-        result = jsonDecode(content);
-      } catch (e) {
-        throw Exception('Failed to parse response from AI.');
+      if (response.data is Map) {
+         result = Map<String, dynamic>.from(response.data);
+      } else if (response.data is String) {
+         result = jsonDecode(response.data);
+      } else {
+         throw Exception('Unexpected response format.');
       }
 
       final user = SupabaseConfig.client.auth.currentUser;
@@ -288,10 +258,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       appBar: AppBar(
         title: const Text('Dashboard'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
-          ),
           IconButton(
             icon: const Icon(Icons.history),
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryScreen())),
@@ -419,84 +385,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({Key? key}) : super(key: key);
-  @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
-}
-
-class _SettingsScreenState extends State<SettingsScreen> {
-  final _apiKeyController = TextEditingController();
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadSettings();
-  }
-
-  Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (mounted) {
-      setState(() {
-        _apiKeyController.text = prefs.getString('openai_api_key') ?? '';
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _saveSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('openai_api_key', _apiKeyController.text.trim());
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('API Key saved successfully!')));
-      Navigator.pop(context);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('AI Settings')),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 600),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('OpenAI Configuration', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _apiKeyController,
-                        decoration: const InputDecoration(
-                          labelText: 'OpenAI API Key',
-                          border: OutlineInputBorder(),
-                          hintText: 'sk-...',
-                        ),
-                        obscureText: true,
-                      ),
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton(
-                          onPressed: _saveSettings,
-                          child: const Text('Save Settings'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
     );
   }
 }
