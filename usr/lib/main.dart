@@ -17,6 +17,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'AI YouTube Script Generator',
       theme: ThemeData(
         brightness: Brightness.dark,
@@ -38,6 +39,7 @@ class MyApp extends StatelessWidget {
           surface: Color(0xFF1A1A1A),
         ),
       ),
+      debugShowCheckedModeBanner: false,
       initialRoute: '/',
       routes: {
         '/': (context) => const AuthWrapper(),
@@ -206,7 +208,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         body: {
           'topic': topic,
           'niche': _selectedNiche,
-          'length_mins': _selectedLength,
+          'length': _selectedLength,
           'tone': _selectedTone,
         },
       );
